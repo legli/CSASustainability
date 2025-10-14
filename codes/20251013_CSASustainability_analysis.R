@@ -1,5 +1,5 @@
 ###### 
-## written by Lukas Egli
+## written by Lukas Egli, Hanna Haf
 ## 13 October 2025
 
 ###### libraries
@@ -9,6 +9,13 @@ library(tidyr)
 library(ggplot2)
 library(cowplot)
 library(Hmisc)
+
+###### backgroupnd color for plot
+background_df <- data.frame(
+  xmin = c(-Inf, -1, 0, 1),
+  xmax = c(-1, 0, 1, Inf),
+  fill = c("#B3CDE3", "#DDEAF4", "#D5EAD0", "#A8D5BA")
+)
 
 ###### load and prepare data
 
@@ -263,8 +270,239 @@ dfFinal  <- dfAll[,c(1:18,69:81)]
 
 
 ###### Analyses
+### Analysis 1: Sustainability aspects
+
+## Construct level
+dfFinalGroup <- dfFinal[,c(1,19:26)]
+dfFinalGroup$Group <- "ConvertedFarms"
+dfFinalGroup[which(dfFinalGroup$Name%in%c("AV","HW","HH","Hhu","LF","BK" )),"Group"] <- "InterestedFarms"
+
+# constructs
+konstrukte <- c("Biodiversity", "Climate Water", "Soil fertility",
+                "Working conditions", "Farm economy",
+                "Regional economy", "Society", "Members")
+
+names(dfFinalGroup)[2:9] <- konstrukte
+
+# T-Tests for all constructs
+ttest_konstrukte <- lapply(konstrukte, function(k) {
+  t_test <- t.test(as.formula(paste0("`", k, "` ~ Group")), data = dfFinalGroup)
+  broom::tidy(t_test) %>%
+    mutate(Konstrukt = k) %>%
+    select(Konstrukt, estimate1, estimate2, estimate, statistic, p.value, conf.low, conf.high)
+}) %>%
+  bind_rows() %>%
+  # Auf 2 Nachkommastellen runden
+  mutate(across(
+    c(estimate1, estimate2, estimate,
+      statistic, p.value, conf.low, conf.high),
+    ~ round(.x, 2)
+  ))
+ttest_konstrukte
+
+# Long format
+names(dfFinalGroup)
+ds_scales_long <- dfFinalGroup[,2:10] %>%
+  pivot_longer(
+    cols = -c(Group),
+    names_to = "Konstrukt",
+    values_to = "Wert"
+  )
+
+# summary
+summary_scales <- ds_scales_long %>%
+  group_by(Group, Konstrukt) %>%
+  summarise(
+    Mittelwert = mean(Wert, na.rm = TRUE),
+    SD = sd(Wert, na.rm = TRUE),
+    n = sum(!is.na(Wert)),
+    SE = SD / sqrt(n),
+    CI_low = Mittelwert - qt(0.975, df = n-1) * SE,
+    CI_high = Mittelwert + qt(0.975, df = n-1) * SE
+  ) %>%
+  ungroup()
+
+# Fix order
+summary_scales$Konstrukt <- factor(summary_scales$Konstrukt,
+                                   levels = rev(names(dfFinalGroup)[1:9]))
 
 
+# significant constructs
+vecSignificantConstruct <- as.vector(ttest_konstrukte[which(ttest_konstrukte$p.value<0.05),"Konstrukt"])$Konstrukt
+
+#plot
+Fig2 <- 
+  ggplot(summary_scales[which(summary_scales$Konstrukt!="Working conditions"),]) +
+  geom_rect(
+    data = background_df,
+    aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf, fill = fill),
+    inherit.aes = FALSE,
+    alpha = 0.4
+  ) +
+  scale_fill_identity() +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "black") +
+  
+  geom_point(aes(x = Mittelwert, y = Konstrukt, color = Group), 
+             size = 2, position = position_dodge(width = 0.6)) +
+  geom_errorbarh(aes(xmin = CI_low, xmax = CI_high, y = Konstrukt, color = Group),
+                 height = 0.2, position = position_dodge(width = 0.6)) +
+  
+  scale_x_continuous(
+    limits = c(-2, 2),
+    breaks = -2:2,
+    labels = c("negative", "rather negative", "neutral", "rather positive", "positive")
+  ) +
+  scale_color_manual(values = c(
+    "ConvertedFarms" = "steelblue",
+    "InterestedFarms" = "black"
+  )) +
+  
+  theme_bw() +
+  labs(
+    x = "Effect",
+    y = "",
+    color = "Group"
+  ) +
+  theme(
+    text = element_text(size = 10)
+  )+
+  theme(legend.position="none")+
+  geom_text(
+    data = subset(summary_scales, 
+                  Konstrukt%in% vecSignificantConstruct & Group == "InterestedFarms"),
+    aes(x = 2, y = Konstrukt, label = "*", color = "black"),
+    vjust = 1,   # leicht rechts vom Punkt
+    size = 10,
+    position = position_dodge(width = 0.6)
+  )
+
+
+## Item level
+dfFinalGroupItem <- dfAll[,c(1,19:68)]
+dfFinalGroupItem$Group <- "ConvertedFarms"
+dfFinalGroupItem[which(dfFinalGroupItem$Name%in%c("AV","HW","HH","Hhu","LF","BK" )),"Group"] <- "InterestedFarms"
+
+items <- c("Crop diversity", "Creation of habitats", "Form of plant protection", "Livestock diversity", "Grassland management", "Animal welfare", 
+  "Energy consumption", "Fuel consumption", "Use of renewable energies", "Material consumption", "Transport and traffic", "Water usage", "Land use and animal husbandry", "Food losses", "Form of fertilization", "Form of soil cultivation", "Crop rotation",
+  "Wages and profits", "Workplace quality", "Involvement of employees", "Number of business branches", "Proportion of land owned by the farm", "Reliable turnover", "Liquidity for reserves or equity capital", "Dependence on subsidies", "Remuneration for ecosystem services provided", "Closed farm cycle", 
+  "Increase regional marketing", "Regional purchases of production resources", "Creation of regional jobs", "Expansion of business cooperation", "Expansion of social cooperation",
+  "Educational programs", "Transfer of specialist knowledge", "Inclusion and integration", "Transparency", "Participation", "Preservation of cultural heritage",
+  "Environmental consciousness", "Sustainability behavior", "Social cohesion members", "Social support on the farm", "Proximity to agriculture", "Health", "Quality of life", "Civic engagement", "Supply stability", "Food prices", "Willingness to pay", "Time spent on food purchasing")
+
+names(dfFinalGroupItem)[2:51] <- items
+
+# T-Tests for all items
+ttest_items <- lapply(items, function(it) {
+  formula_it <- as.formula(paste0("`", it, "` ~ Group"))
+  t_test <- t.test(formula_it, data = dfFinalGroupItem)
+  broom::tidy(t_test) %>%
+    mutate(Item = it) %>%
+    select(Item, estimate1, estimate2, estimate, statistic, p.value, conf.low, conf.high)
+}) %>%
+  bind_rows() %>%
+  mutate(across(
+    c(estimate1, estimate2, estimate,
+      statistic, p.value, conf.low, conf.high),
+    ~ round(.x, 3)
+  ))
+ttest_items[order(ttest_items$p.value),]
+
+# Long Format
+ds_all_long <- dfFinalGroupItem %>%
+  pivot_longer(
+    cols = -c(Name,Group),
+    names_to = "Variable",
+    values_to = "Wert"
+  )
+
+# Summary
+summary_all <- ds_all_long %>%
+  group_by(Group, Variable) %>%
+  summarise(
+    Mittelwert = mean(Wert, na.rm = TRUE),
+    SD = sd(Wert, na.rm = TRUE),
+    n = sum(!is.na(Wert)),
+    SE = SD / sqrt(n),
+    CI_low = Mittelwert - qt(0.975, df = n-1) * SE,
+    CI_high = Mittelwert + qt(0.975, df = n-1) * SE
+  ) %>%
+  ungroup()
+
+# add constructs
+item_konstrukt <- data.frame(
+  Variable = colnames(dfFinalGroupItem)[2:51],
+  Konstrukt = c(
+    rep("Biodiversity",6),
+    rep("Climate Water",8),
+    rep("Soil fertility",3),
+    rep("Working conditions",3),
+    rep("Farm economy",7),
+    rep("Regional economy",5),
+    rep("Society",6),
+    rep("Members",12)
+  )
+)
+
+summary_all <- left_join(summary_all, item_konstrukt, by = "Variable")
+
+# fix order of constructs and items
+desired_order <- c("Biodiversity", "Climate Water", "Soil fertility", "Working conditions", "Farm economy", "Regional economy", "Society", "Members")
+summary_all$Konstrukt <- factor(summary_all$Konstrukt, levels = desired_order)
+summary_all$Variable <- factor(summary_all$Variable, levels = rev(item_konstrukt$Variable))
+
+# significant items
+vecSignificant <- as.vector(ttest_items[which(ttest_items$p.value<0.05),"Item"])$Item
+
+# create plot
+FigS1 <- 
+  ggplot(summary_all) +
+  geom_rect(
+    data = background_df,
+    aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf, fill = fill),
+    inherit.aes = FALSE,
+    alpha = 0.4
+  ) +
+  scale_fill_identity() +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "black") +
+  geom_point(aes(x = Mittelwert, y = Variable, color = Group), size = 1.5,
+             position = position_dodge(width = 0.6)) +
+  geom_errorbarh(aes(xmin = CI_low, xmax = CI_high, y = Variable, color = Group),
+                 height = 0.2, position = position_dodge(width = 0.6)) +
+  scale_x_continuous(
+    breaks = -2:2,
+    labels = c("negative", "rather negative", "neutral", "rather positive", "positive")
+  ) +
+  scale_color_manual(values = c(
+    "ConvertedFarms" = "steelblue",
+    "InterestedFarms" = "black"
+  )) +
+  theme_bw() +
+  labs(
+    x = "Effect",
+    y = "",
+    color = "Group"
+  ) +
+  theme(
+    text = element_text(size = 8),
+    strip.background = element_rect(fill = "grey85", color = NA),
+    strip.text = element_text(face = "bold"),
+    strip.placement = "outside"
+  ) +
+  facet_wrap(~ Konstrukt, ncol = 1, scales = "free_y")+
+  theme(legend.position="none")+
+  geom_text(
+    data = subset(summary_all, 
+                  Variable %in% vecSignificant & Group == "InterestedFarms"),
+    aes(x = 2.5, y = Variable, label = "*", color = "black"),
+    vjust = 0.75,   # leicht rechts vom Punkt
+    size = 5,
+    position = position_dodge(width = 0.6)
+  )
+
+
+
+
+### Analysis 2: Farm acharacteristics and conversion decisions
 ## change year of foundation to CSA age
 dfFinal$Jahr <- 2025-dfFinal$Jahr 
 names(dfFinal)
@@ -360,6 +598,16 @@ fig3b <- ggplot(na.omit(df[,c("AenderungMitarbeit","Mitglieder")]), aes(x = Aend
 
 
 #####  results
+
+# jpeg("Fig2.jpeg", width = 18, height = 12, units = "cm", res = 600)
+#   Fig2
+# dev.off()
+
+# jpeg("FigS1.jpeg", width = 16.9, height = 35, units = 'cm', res = 600)
+#   FigS1
+# dev.off()
+
+
 Table3 <- corTable 
 # write.xlsx(Table3,"Table3.xlsx")
 
