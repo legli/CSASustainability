@@ -376,6 +376,17 @@ Fig2 <-
     position = position_dodge(width = 0.6)
   )
 
+Fig2D <- 
+  Fig2 + 
+  scale_x_continuous(
+    limits = c(-2, 2),
+    breaks = -2:2,
+    labels = c("negativ", "eher negativ", "neutral", "eher positiv", "positiv"),
+    )+
+  scale_y_discrete(
+    labels=c("Mitglieder","Gesselschaft","Regionale Wirtschaft","Betriebswirtschaft",
+             "Bodenfruchtbarkeit","Klima und Wasser","Biodiversität")
+  )
 
 ## Item level
 dfFinalGroupItem <- dfAll[,c(1,19:68)]
@@ -529,29 +540,29 @@ functionSustainability <- function(aspect,dfTarget,responses){
 
 responses1 <- c("Biodiversitaet","KlimaWasser","Bodenfruchtbarkeit","Wirtschaft","Vernetzung","Gesellschaft","Mitglieder")
 
-tableS1a <- functionSustainability("AenderungWirtschaftsweise",df,responses1)
+tableS1a <- functionSustainability("AenderungWirtschaftsweise",dfAll,responses1)
 functionSustainability("AenderungWirtschaftsweise",dfAll,klimawasser)
 
-tableS1b <-functionSustainability("AenderungBetriebszweige",df,responses1)
+tableS1b <-functionSustainability("AenderungBetriebszweige",dfAll,responses1)
 tableS2a <- functionSustainability("AenderungBetriebszweige",dfAll,klimawasser) 
 
-tableS1c <- functionSustainability("AenderungTransport",df,responses1)
+tableS1c <- functionSustainability("AenderungTransport",dfAll,responses1)
 functionSustainability("AenderungTransport",dfAll,vernetzung)
 
-tableS1d <- functionSustainability("AenderungKooperationen",df,responses1)
+tableS1d <- functionSustainability("AenderungKooperationen",dfAll,responses1)
 
-tableS1e <- functionSustainability("AenderungArbeitsplätze",df,responses1)
+tableS1e <- functionSustainability("AenderungArbeitsplätze",dfAll,responses1)
 
-tableS1f <- functionSustainability("Beitragsgestaltung",df,responses1)
+tableS1f <- functionSustainability("Beitragsgestaltung",dfAll,responses1)
 
-tableS1g <- functionSustainability("AenderungMitarbeit",df,responses1)
+tableS1g <- functionSustainability("AenderungMitarbeit",dfAll,responses1)
+
 functionSustainability("AenderungMitarbeit",dfAll,mitglieder) # kosten
 tableS2b <- functionSustainability("AenderungMitarbeit",dfAll,mitglieder) # 
-
-tableS1h <- functionSustainability("AenderungMitbestimmung",df,responses1)
+tableS1h <- functionSustainability("AenderungMitbestimmung",dfAll,responses1)
 
 ## create figures for significant group differences
-fig3a <- ggplot(na.omit(df[,c("AenderungBetriebszweige","KlimaWasser")]), aes(x = AenderungBetriebszweige, y = KlimaWasser , fill = AenderungBetriebszweige)) +
+fig3a <- ggplot(na.omit(dfAll[,c("AenderungBetriebszweige","KlimaWasser")]), aes(x = AenderungBetriebszweige, y = KlimaWasser , fill = AenderungBetriebszweige)) +
   geom_boxplot(
     outlier.shape = 21,       # Ausreißer als Punkte
     outlier.size = 2,
@@ -573,7 +584,7 @@ fig3a <- ggplot(na.omit(df[,c("AenderungBetriebszweige","KlimaWasser")]), aes(x 
   ) +
   ylab("Climate & water")
 
-fig3b <- ggplot(na.omit(df[,c("AenderungMitarbeit","Mitglieder")]), aes(x = AenderungMitarbeit, y = Mitglieder , fill = AenderungMitarbeit)) +
+fig3b <- ggplot(na.omit(dfAll[,c("AenderungMitarbeit","Mitglieder")]), aes(x = AenderungMitarbeit, y = Mitglieder , fill = AenderungMitarbeit)) +
   geom_boxplot(
     outlier.shape = 21,       # Ausreißer als Punkte
     outlier.size = 2,
@@ -599,35 +610,39 @@ fig3b <- ggplot(na.omit(df[,c("AenderungMitarbeit","Mitglieder")]), aes(x = Aend
 
 #####  results
 
-# jpeg("Fig2.jpeg", width = 18, height = 12, units = "cm", res = 600)
-#   Fig2
+jpeg("results/Fig2.jpeg", width = 18, height = 12, units = "cm", res = 600)
+  Fig2
+dev.off()
+
+# jpeg("results/Fig2_deutsch.jpeg", width = 18, height = 12, units = "cm", res = 600)
+#   Fig2D
 # dev.off()
 
-# jpeg("FigS1.jpeg", width = 16.9, height = 35, units = 'cm', res = 600)
-#   FigS1
-# dev.off()
+jpeg("results/FigS1.jpeg", width = 16.9, height = 35, units = 'cm', res = 600)
+  FigS1
+dev.off()
 
 
 Table3 <- corTable 
-# write.xlsx(Table3,"Table3.xlsx")
+write.xlsx(Table3,"results/Table3.xlsx")
 
 tableS1 <- rbind(tableS1a,tableS1b,tableS1c,tableS1d,tableS1e,tableS1f,tableS1g,tableS1h)
 tableS1[2:8] <- round(tableS1[2:8],2)
 tableS1$estimate <- paste0(tableS1$estimate," (",tableS1$conf.low,"-",tableS1$conf.high,")")
 tableS1 <- tableS1[,c("Konstrukt","estimate1","estimate2","estimate","statistic","p.value")]
-# write.xlsx(tableS1,"TableS1.xlsx")
+write.xlsx(tableS1,"results/TableS1.xlsx")
 
 tableS2 <- rbind(tableS2a,tableS2b)
 tableS2[2:8] <- round(tableS2[2:8],2)
 tableS2$estimate <- paste0(tableS2$estimate," (",tableS2$conf.low,"-",tableS2$conf.high,")")
 tableS2 <- tableS2[,c("Konstrukt","estimate1","estimate2","estimate","statistic","p.value")]
-# write.xlsx(tableS2,"TableS2.xlsx")
+write.xlsx(tableS2,"results/TableS2.xlsx")
 
 Fig3 <- plot_grid(plotlist = c(fig3a,fig3b),labels = c("a","b"),label_size=10,nrow = 1,ncol = 2,align="h")
 
-# jpeg("Fig3.jpeg",width = 16.9, height = 8,units = 'cm', res = 600)
-#   Fig3
-# dev.off()
+jpeg("results/Fig3.jpeg",width = 16.9, height = 8,units = 'cm', res = 600)
+  Fig3
+dev.off()
 
 
 
