@@ -282,6 +282,13 @@ konstrukte <- c("Biodiversity", "Climate Water", "Soil fertility",
                 "Working conditions", "Farm economy",
                 "Regional economy", "Society", "Members")
 
+konstrukteD <- c("Biodiversität","Klima und Wasser", "Bodenfruchtbarkeit",
+                 "Arbeitsbedinungen","Wirtschaftliche Nachhaltigkeit","Regionale Wirtschaft",
+                 "Gesselschaft","Mitglieder")
+
+dfTranslationConstructs <- data.frame(Konstrukt=konstrukte,KonstruktD = konstrukteD)
+dfTranslationConstructs$KonstruktD <- factor(dfTranslationConstructs$KonstruktD,levels=rev(konstrukteD))
+
 names(dfFinalGroup)[2:9] <- konstrukte
 
 # T-Tests for all constructs
@@ -325,7 +332,6 @@ summary_scales <- ds_scales_long %>%
 # Fix order
 summary_scales$Konstrukt <- factor(summary_scales$Konstrukt,
                                    levels = rev(names(dfFinalGroup)[1:9]))
-
 
 # significant constructs
 vecSignificantConstruct <- as.vector(ttest_konstrukte[which(ttest_konstrukte$p.value<0.05),"Konstrukt"])$Konstrukt
@@ -376,17 +382,54 @@ Fig2 <-
     position = position_dodge(width = 0.6)
   )
 
+
+summary_scalesD <- merge(summary_scales,dfTranslationConstructs)
 Fig2D <- 
-  Fig2 + 
+  ggplot(summary_scalesD) +
+  geom_rect(
+    data = background_df,
+    aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf, fill = fill),
+    inherit.aes = FALSE,
+    alpha = 0.4
+  ) +
+  scale_fill_identity() +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "black") +
+  
+  geom_point(aes(x = Mittelwert, y = KonstruktD, color = Group), 
+             size = 2, position = position_dodge(width = 0.6)) +
+  geom_errorbarh(aes(xmin = CI_low, xmax = CI_high, y = KonstruktD, color = Group),
+                 height = 0.2, position = position_dodge(width = 0.6)) +
+  
   scale_x_continuous(
     limits = c(-2, 2),
     breaks = -2:2,
-    labels = c("negativ", "eher negativ", "neutral", "eher positiv", "positiv"),
-    )+
-  scale_y_discrete(
-    labels=c("Mitglieder","Gesselschaft","Regionale Wirtschaft","Betriebswirtschaft",
-             "Bodenfruchtbarkeit","Klima und Wasser","Biodiversität")
+    labels = c("negativ", "eher negativ", "neutral", "eher positiv", "positiv")
+  ) +
+  scale_color_manual(values = c(
+    "ConvertedFarms" = "steelblue",
+    "InterestedFarms" = "black"
+  )) +
+  
+  theme_bw() +
+  labs(
+    x = "",
+    y = "",
+    color = "Group"
+  ) +
+  theme(
+    text = element_text(size = 10)
+  )+
+  theme(legend.position="none")+
+  geom_text(
+    data = subset(summary_scalesD, 
+                  Konstrukt%in% vecSignificantConstruct & Group == "InterestedFarms"),
+    aes(x = 2, y = KonstruktD, label = "*", color = "black"),
+    vjust = 1,   # leicht rechts vom Punkt
+    size = 10,
+    position = position_dodge(width = 0.6)
   )
+
+
 
 ## Item level
 dfFinalGroupItem <- dfAll[,c(1,19:68)]
@@ -399,6 +442,15 @@ items <- c("Crop diversity", "Creation of habitats", "Form of plant protection",
   "Increase regional marketing", "Regional purchases of production resources", "Creation of regional jobs", "Expansion of business cooperation", "Expansion of social cooperation",
   "Educational programs", "Transfer of specialist knowledge", "Inclusion and integration", "Transparency", "Participation", "Preservation of cultural heritage",
   "Environmental consciousness", "Sustainability behavior", "Social cohesion members", "Social support on the farm", "Proximity to agriculture", "Health", "Quality of life", "Civic engagement", "Supply stability", "Food prices", "Willingness to pay", "Time spent on food purchasing")
+
+itemsD <- c("Nutzpflanzenvielfalt","Lebensräume","Pflanzenschutz","Nutztiervielfalt","Grünlandbewirtschaftung","Tierwohl",
+  "Energieverbrauch","Kraftstoffverbrauch","Erneuerbare Energien","Materialverbrauch","Transport und Verkehr","Wasserverbrauch","Landnutzung und Tierhaltung","Lebensmittelverluste","Düngung","Bodenbearbeitung","Fruchtfolge",
+  "Lohn und Gewinn","Arbeitsplatzqualität","Einbindung der Angestellten","Anzahl Betriebszweige","Betriebseigentum","Verlässlicher Umsatz","Liquidität","Subventionsabhängigkeit","Entlohnung von Ökosystemleistungen","Geschlossener Hofkreislauf",
+  "Regionale Vermarktung","Regionaler Zukauf","Arbeitsplätze","Betriebliche Kooperationen","Soziale Kooperationen",
+  "Pädagogische Angebote","Vermittlung von Fachwissen","Inklusion und Integration","Transparenz","Partizipation","Erhalt von Kulturgut",
+  "Umweltbewusstsein","Nachhaltiges Verhalten","Sozialer Zusammenhalt","Soziale Unterstützung","Nähe zur Landwirtschaft","Gesundheit","Lebensqualität","zivilgesellschaftliches Engagement","Versorgungsstabilität","Lebensmittelkosten","Zahlungsbereitschaft","Zeitaufwand Lebensmittelbeschaffung")
+dfTranslation <- data.frame(Variable=items, VariableD=itemsD)
+dfTranslation$VariableD <- factor(dfTranslation$VariableD, levels = rev(itemsD))
 
 names(dfFinalGroupItem)[2:51] <- items
 
@@ -510,6 +562,55 @@ FigS1 <-
     position = position_dodge(width = 0.6)
   )
 
+summary_allD <- merge(summary_all,dfTranslation)
+summary_allD <- merge(summary_allD,dfTranslationConstructs)
+summary_allD$KonstruktD <- factor(summary_allD$KonstruktD,levels=konstrukteD)
+
+
+FigS1D <- 
+  ggplot(summary_allD) +
+  geom_rect(
+    data = background_df,
+    aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf, fill = fill),
+    inherit.aes = FALSE,
+    alpha = 0.4
+  ) +
+  scale_fill_identity() +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "black") +
+  geom_point(aes(x = Mittelwert, y = VariableD, color = Group), size = 1.5,
+             position = position_dodge(width = 0.6)) +
+  geom_errorbarh(aes(xmin = CI_low, xmax = CI_high, y = VariableD, color = Group),
+                 height = 0.2, position = position_dodge(width = 0.6)) +
+  scale_x_continuous(
+    breaks = -2:2,
+    labels = c("negativ", "eher negativ", "neutral", "eher positiv", "positiv")
+  ) +
+  scale_color_manual(values = c(
+    "ConvertedFarms" = "steelblue",
+    "InterestedFarms" = "black"
+  )) +
+  theme_bw() +
+  labs(
+    x = "",
+    y = "",
+    color = "Group"
+  ) +
+  theme(
+    text = element_text(size = 8),
+    strip.background = element_rect(fill = "grey85", color = NA),
+    strip.text = element_text(face = "bold"),
+    strip.placement = "outside"
+  ) +
+  facet_wrap(~ KonstruktD, ncol = 1, scales = "free_y")+
+  theme(legend.position="none")+
+  geom_text(
+    data = subset(summary_allD, 
+                  Variable %in% vecSignificant & Group == "InterestedFarms"),
+    aes(x = 2.5, y = VariableD, label = "*", color = "black"),
+    vjust = 0.75,   # leicht rechts vom Punkt
+    size = 5,
+    position = position_dodge(width = 0.6)
+  )
 
 
 
@@ -622,6 +723,9 @@ jpeg("results/FigS1.jpeg", width = 16.9, height = 35, units = 'cm', res = 600)
   FigS1
 dev.off()
 
+# jpeg("results/FigS1_deutsch.jpeg", width = 16.9, height = 35, units = 'cm', res = 600)
+# FigS1D
+# dev.off()
 
 Table3 <- corTable 
 write.xlsx(Table3,"results/Table3.xlsx")
